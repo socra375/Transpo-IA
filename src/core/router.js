@@ -53,6 +53,11 @@ async function mostrar(animar = true) {
 
   limpiar?.();
   limpiar = null;
+  // Una hoja o modal abierto no debe quedar encima de la pantalla nueva.
+  for (const d of document.querySelectorAll('dialog')) {
+    d.close();
+    d.remove();
+  }
   const vista = document.getElementById('view');
   const nueva = document.createElement('div');
   nueva.className = 'view';

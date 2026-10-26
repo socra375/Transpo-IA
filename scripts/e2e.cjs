@@ -12,7 +12,7 @@ const ok = (cond, msg) => {
   const servidor = crear().listen(0);
   const base = `http://localhost:${servidor.address().port}/index.html`;
   const navegador = await chromium.launch();
-  const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', timezoneId: 'America/Santo_Domingo', hasTouch: true });
+  const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', timezoneId: 'America/Santo_Domingo', hasTouch: true, acceptDownloads: true });
   const page = await ctx.newPage();
   page.setDefaultTimeout(5000);
   const errores = [];
@@ -113,6 +113,47 @@ const ok = (cond, msg) => {
   await page.click('dialog.sheet button[type=submit]');
   await page.waitForTimeout(200);
   ok((await page.textContent('#f-placa-err')).includes('Ya existe'), 'placa duplicada rechazada');
+
+  // Reportes: CSV descargable.
+  await page.evaluate(() => { location.hash = '#/reportes'; });
+  await page.waitForSelector('[data-csv="chofer"]');
+  const [csv] = await Promise.all([page.waitForEvent('download'), page.click('[data-csv="chofer"]')]);
+  const contenido = require('fs').readFileSync(await csv.path(), 'utf8');
+  ok(contenido.startsWith('﻿Chofer,Viajes,Completados'), `CSV de retrasos por chofer (${csv.suggestedFilename()})`);
+
+  // Ajustes: tolerancia inválida muestra error junto al campo.
+  await page.evaluate(() => { location.hash = '#/ajustes'; });
+  await page.waitForSelector('#f-tolerancia');
+  await page.fill('#f-tolerancia', '90');
+  await page.dispatchEvent('#f-tolerancia', 'change');
+  ok((await page.textContent('#f-tolerancia-err')).includes('entre 0 y 60'), 'tolerancia fuera de rango rechazada');
+  await page.fill('#f-tolerancia', '10');
+  await page.dispatchEvent('#f-tolerancia', 'change');
+  ok((await page.evaluate(() => JSON.parse(localStorage.getItem('ct:prefs')).toleranciaMin)) === 10, 'tolerancia guardada');
+
+  // Tema oscuro manual.
+  await page.click('[data-tema="oscuro"]');
+  ok((await page.evaluate(() => document.documentElement.dataset.theme)) === 'oscuro', 'tema oscuro aplicado');
+  await page.click('[data-letra="21"]');
+  ok((await page.evaluate(() => document.documentElement.style.fontSize)) === '21px', 'tamaño de letra aplicado');
+
+  // Respaldo: exportar → borrar ejemplo → importar restaura.
+  const [resp] = await Promise.all([page.waitForEvent('download'), page.click('[data-exportar]')]);
+  const rutaResp = await resp.path();
+  const totalAntes = await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')).length);
+  await page.click('[data-borrar-ejemplo]');
+  await page.click('dialog.modal [data-r="1"]');
+  await page.waitForTimeout(500);
+  const quedan = await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')));
+  ok(quedan.length >= 1 && quedan.every((v) => !v.ejemplo), `datos de ejemplo borrados; quedan ${quedan.length} viaje(s) del usuario`);
+  ok(await page.locator('#badge-ejemplo').isHidden(), 'franja "datos de ejemplo" desaparece');
+  await page.setInputFiles('#f-importar', rutaResp);
+  await page.click('dialog.modal [data-r="1"]');
+  await page.waitForTimeout(500);
+  ok((await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')).length)) === totalAntes, 'importar respaldo restaura todos los viajes');
+  await page.setInputFiles('#f-importar', { name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"hola":1}') });
+  await page.waitForTimeout(200);
+  ok((await page.textContent('#f-importar-err')).includes('no es un respaldo'), 'archivo ajeno rechazado con mensaje');
 
   ok(!errores.length, `sin errores de consola${errores.length ? `: ${errores.join(' | ')}` : ''}`);
   await navegador.close();

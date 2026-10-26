@@ -407,7 +407,7 @@
   box-shadow: var(--shadow-1);
   min-width: 0;
 }
-.stat__label { font-family: var(--font-display); font-size: var(--fs-sm); font-weight: 600; color: var(--c-text-muted); text-transform: uppercase; letter-spacing: 0.03em; overflow-wrap: anywhere; }
+.stat__label { font-family: var(--font-display); font-size: var(--fs-sm); font-weight: 600; color: var(--c-text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
 .stat__value {
   font-family: var(--font-display);
   font-weight: 700;

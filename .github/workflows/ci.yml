@@ -32,14 +32,17 @@ jobs:
 
       # La app no tiene dependencias; Playwright solo se usa para probarla.
       - name: Instalar Playwright y Chromium
+        timeout-minutes: 5   # una descarga atascada debe fallar rápido, no bloquear 15 min
         run: |
           npm install --no-save --no-package-lock playwright@1.63.0
           npx playwright install --with-deps chromium
 
       - name: Flujos en navegador (e2e)
+        timeout-minutes: 5
         run: npm run e2e
 
       - name: QA visual (390 px claro/oscuro, contraste, offline, letra grande)
+        timeout-minutes: 5
         run: npm run qa
 
       - name: Guardar capturas de QA

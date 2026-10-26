@@ -76,6 +76,12 @@ export function inicioSemana(clave) {
   return sumarDias(clave, dia === 0 ? -6 : 1 - dia);
 }
 
+/** Días de calendario entre dos fechas clave (b − a). */
+export function diasEntre(a, b) {
+  const t = (c) => Date.UTC(...c.split('-').map((n, i) => Number(n) - (i === 1 ? 1 : 0)));
+  return Math.round((t(b) - t(a)) / 86400000);
+}
+
 export function minutosEntre(desdeISO, hastaISO) {
   return Math.round((new Date(hastaISO) - new Date(desdeISO)) / MIN);
 }
@@ -147,4 +153,11 @@ export function estadoViaje(viaje, ahora = new Date(), toleranciaMin = config.ne
     salidaAtrasada: t > new Date(viaje.salidaProg).getTime(),
     etiqueta: 'Programado',
   };
+}
+
+/** Estado de una licencia: null (sin fecha), 'vigente', 'por_vencer' (≤ dias) o 'vencida'. */
+export function estadoLicencia(venceClave, hoy, dias = config.negocio.diasAvisoLicencia) {
+  if (!venceClave) return { estado: null, dias: null };
+  const d = diasEntre(hoy, venceClave);
+  return { estado: d < 0 ? 'vencida' : d <= dias ? 'por_vencer' : 'vigente', dias: d };
 }

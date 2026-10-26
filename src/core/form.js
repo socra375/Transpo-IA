@@ -1,6 +1,6 @@
 // Formularios generados desde config.modulos[x].campos: render, lectura, validación y hoja inferior.
 import { esc, abrirHoja, toast, icon } from './ui.js';
-import { unidad } from './format.js';
+import { unidad, telefono, cedula } from './format.js';
 
 const solo = (v, re) => String(v ?? '').replace(re, '');
 
@@ -16,7 +16,9 @@ function opcionesReferencia(campo, refs, valor) {
 function controlHTML(c, valor, refs) {
   const id = `f-${c.clave}`;
   const comun = `id="${id}" name="${c.clave}" aria-describedby="${id}-err${c.ayuda ? ` ${id}-help` : ''}" ${c.requerido ? 'aria-required="true"' : ''}`;
-  const v = valor ?? '';
+  let v = valor ?? '';
+  if (c.tipo === 'telefono') v = telefono(v).replace(/[()]/g, '').replace(' ', '-');
+  if (c.tipo === 'cedula') v = cedula(v);
   switch (c.tipo) {
     case 'notas':
       return `<textarea class="textarea" ${comun} maxlength="${c.max || 500}" rows="3">${esc(v)}</textarea>`;

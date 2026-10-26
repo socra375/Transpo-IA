@@ -120,3 +120,18 @@ test('formatoDuracion', () => {
   assert.equal(formatoDuracion(60), '1 h');
   assert.equal(formatoDuracion(75), '1 h 15 min');
 });
+
+test('diasEntre', async () => {
+  const { diasEntre } = await import('../src/core/time.js');
+  assert.equal(diasEntre('2026-10-26', '2026-11-13'), 18);
+  assert.equal(diasEntre('2026-10-26', '2026-10-20'), -6);
+});
+
+test('estadoLicencia', async () => {
+  const { estadoLicencia } = await import('../src/core/time.js');
+  assert.equal(estadoLicencia('2026-11-13', '2026-10-26', 30).estado, 'por_vencer');
+  assert.equal(estadoLicencia('2026-10-25', '2026-10-26', 30).estado, 'vencida');
+  assert.equal(estadoLicencia('2026-10-26', '2026-10-26', 30).estado, 'por_vencer');
+  assert.equal(estadoLicencia('2027-10-26', '2026-10-26', 30).estado, 'vigente');
+  assert.equal(estadoLicencia('', '2026-10-26', 30).estado, null);
+});

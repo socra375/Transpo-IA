@@ -657,3 +657,4 @@ dialog::backdrop { background: var(--scrim); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-1) var(--sp-4); font-size: var(--fs-sm); }
 .kv dt { color: var(--c-text-muted); }
 .kv dd { margin: 0; font-weight: 700; text-align: right; overflow-wrap: anywhere; }
+.item__body > .chip { justify-self: start; margin-top: var(--sp-1); }

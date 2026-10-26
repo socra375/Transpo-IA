@@ -50,6 +50,11 @@ async function iniciar() {
     setPref('tema', temaEfectivo() === 'oscuro' ? 'claro' : 'oscuro');
   });
   document.getElementById('badge-ejemplo').addEventListener('click', () => ir('ajustes'));
+  // El enlace "Saltar al contenido" no debe cambiar el hash (el hash es la ruta).
+  document.querySelector('[data-saltar]').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('main').focus();
+  });
 
   try {
     await sembrarSiPrimeraVez();

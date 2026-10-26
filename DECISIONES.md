@@ -33,3 +33,39 @@ Lo que el cliente aún no confirmó se decidió así. Lo marcado **(config)** se
 - Teléfono: 10 dígitos que empiezan por 809, 829 u 849.
 - Cédula: 11 dígitos. Se muestra como `001-1234567-8`. No se valida el dígito verificador: algunas cédulas antiguas no lo cumplen.
 - Placa: 1–2 letras + 5–6 dígitos (`I045821`). Patrón editable en config.
+
+## Reglas de negocio interpretadas
+
+| # | Decisión | Alternativa si el cliente prefiere otra cosa |
+|---|----------|------|
+| N1 | El prompt mezcla estado y puntualidad. Se separaron: **estado** = Programado → En ruta → Completado (o *Sin llegada registrada*); **puntualidad** (solo completados) = *A tiempo* o *Retrasado (+N min)*. Un viaje completado muestra dos chips: "Completado" y "A tiempo"/"Retrasado". | Mostrar un solo chip: cambiar `chipsEstado()` en `viajes.js`. |
+| N2 | "Sin llegada registrada" se aplica en cuanto pasa la llegada programada, **sin** tolerancia (regla literal). | Sumar la tolerancia en `estadoViaje()` (`time.js`) y en su prueba. |
+| N3 | Llegar antes de tiempo cuenta como "A tiempo" (retraso negativo). Retraso **igual** a la tolerancia = a tiempo; solo cuenta si la **supera**. | — |
+| N4 | Un viaje programado cuya hora de salida pasó sin marcarse muestra "Salida pendiente". El retraso solo se mide por la llegada, como pide el prompt. | Medir también el retraso de salida. |
+| N5 | Cruce de medianoche al capturar: la **llegada programada** que es menor que la salida cae al día siguiente. Las **horas reales** se asignan al día más cercano a la hora programada (±12 h). | — |
+| N6 | Un viaje pertenece al día de su **salida programada**. Inicio también muestra los viajes de **ayer** aún abiertos (p. ej. el de las 11:40 p. m.). | — |
+| N7 | Al pulsar "Llegó ahora" con retraso, se abre una hoja corta para el motivo. Es opcional: se puede omitir. | Quitarla: `activo: false` en el campo `motivoRetraso`. |
+| N8 | Turnos: se permiten **varios turnos por día** (turno partido). Un turno sin salida sigue abierto aunque cambie el día (turnos nocturnos). Si un turno abierto supera `horasTurnoLargo` (12 h), sale un aviso de que quizá falta marcar la salida. | — |
+| N9 | Los viajes y cargas **archivados** no cuentan en Inicio ni en Reportes. | — |
+| N10 | Reportes: la puntualidad se calcula solo con viajes completados. "Sin llegada" se reporta aparte (no se adivina su retraso). | — |
+| N11 | Combustible: la cantidad y el monto se registran; el precio por unidad se calcula (monto ÷ cantidad) y se muestra. | Pedir precio por galón y calcular el monto. |
+| N12 | Avisos de Inicio: sin llegada (hoy y ayer), salidas pendientes, licencias vencidas o que vencen en ≤ 30 días, turnos de más de 12 h y respaldo con más de 7 días (solo cuando ya hay datos reales). Cada uno se enciende o apaga en `config.inicio.avisos`. | — |
+| N13 | Al borrar los datos de ejemplo, los registros del usuario que apuntaban a ellos se conservan y muestran "(eliminado)". La confirmación avisa cuántos hay. | Bloquear el borrado o convertir esos ejemplos en datos reales. |
+
+## Datos, respaldo y PWA
+
+| # | Decisión |
+|---|----------|
+| D1 | Respaldo en JSON con `{ app, formato, version, exportado, datos }`. Al importar se valida el formato y se pide confirmación, porque **reemplaza** todo. |
+| D2 | CSV con BOM UTF-8, separador coma y números sin formato (RD$ en el encabezado), para que Excel en español muestre bien las tildes y pueda sumar. |
+| D3 | Service worker: los archivos propios salen de la caché y se actualizan en segundo plano; las fuentes de Google se guardan al usarse. Hay que subir `VERSION` en `sw.js` en cada publicación. |
+| D4 | Datos de ejemplo: 4 choferes (uno de vacaciones y uno con licencia por vencer), 5 rutas de Santo Domingo, 3 autobuses, 14 días con 7 viajes diarios (menos los domingos) y ~22 % con retraso, cargas de gasoil a RD$235.10/gal (precio supuesto) y turnos. Se generan relativos al día de instalación y con semilla fija. |
+
+## Preguntas para el cliente (lo que más cambiaría la app)
+
+1. ¿Uno o varios supervisores/teléfonos? Con más de uno, localStorage no sirve: hay que migrar a Supabase antes de usarla en serio.
+2. ¿El retraso se mide solo por la llegada, o también importa la salida tardía?
+3. ¿"Sin llegada registrada" debe esperar la tolerancia?
+4. ¿Galones o litros? ¿Se paga por monto o por precio por galón?
+5. ¿Qué es lo primero que quiere ver al abrir la app (Inicio)?
+6. Nombre de la empresa, color de marca y logo.

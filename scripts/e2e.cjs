@@ -8,6 +8,16 @@ const ok = (cond, msg) => {
   if (!cond) fallos++;
 };
 
+// Reintenta una condición hasta `ms`: la lista se repinta de forma asíncrona tras guardar.
+async function espera(cond, ms = 4000) {
+  const fin = Date.now() + ms;
+  for (;;) {
+    if (await cond()) return true;
+    if (Date.now() > fin) return false;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
 (async () => {
   const servidor = crear().listen(0);
   const base = `http://localhost:${servidor.address().port}/index.html`;
@@ -54,8 +64,7 @@ const ok = (cond, msg) => {
   const antes = await page.locator('[data-rapido="salio"]').count();
   if (antes) {
     await page.locator('[data-rapido="salio"]').first().click();
-    await page.waitForTimeout(300);
-    ok((await page.locator('[data-rapido="salio"]').count()) === antes - 1, '"Salió ahora" registra la salida');
+    ok(await espera(async () => (await page.locator('[data-rapido="salio"]').count()) === antes - 1), '"Salió ahora" registra la salida');
     ok((await page.locator('.toast').last().textContent()).includes('Salida registrada'), 'toast de salida');
   } else console.log('· sin viajes pendientes de salir hoy (depende de la hora)');
 
@@ -63,13 +72,21 @@ const ok = (cond, msg) => {
   const llego = page.locator('[data-rapido="llego"]').first();
   if (await llego.count()) {
     await llego.click();
-    await page.waitForTimeout(300);
-    const pide = await page.locator('dialog.sheet', { hasText: 'Motivo del retraso' }).count();
+    // El toast dice si llegó tarde; solo entonces se abre la hoja del motivo.
+    await espera(async () => /retraso|A tiempo/.test(await page.locator('.toast').last().textContent().catch(() => '')));
+    const tarde = /retraso/.test(await page.locator('.toast').last().textContent());
+    const pide = tarde ? await espera(async () => (await page.locator('dialog.sheet', { hasText: 'Motivo del retraso' }).count()) === 1) : false;
     if (pide) {
       await page.fill('#f-motivoRetraso', 'Tapón en la 27');
       await page.click('dialog.sheet button[type=submit]');
       await page.waitForSelector('dialog.sheet', { state: 'detached' });
-      ok((await page.locator('.item', { hasText: 'Tapón en la 27' }).count()) === 1, 'motivo del retraso guardado');
+      const guardado = await espera(async () => (await page.locator('.item', { hasText: 'Tapón en la 27' }).count()) === 1);
+      ok(guardado, 'motivo del retraso guardado');
+      if (!guardado) {
+        // Diagnóstico para el log de CI: qué había en pantalla y en el almacenamiento.
+        console.log('   tarjetas:', JSON.stringify(await page.locator('.item').allTextContents()));
+        console.log('   en almacenamiento:', await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')).filter((v) => v.motivoRetraso).map((v) => `${v.id}: ${v.motivoRetraso}`).join(' | ')));
+      }
     } else ok(true, 'llegada registrada a tiempo');
   }
 
@@ -78,11 +95,9 @@ const ok = (cond, msg) => {
   await page.waitForSelector('[data-lista] .item');
   const card = page.locator('.item', { hasText: 'Luis Manuel' });
   await card.locator('[data-accion="entrada"]').click();
-  await page.waitForTimeout(300);
-  ok((await card.textContent()).includes('En turno desde'), 'marcar entrada abre el turno');
+  ok(await espera(async () => (await card.textContent()).includes('En turno desde')), 'marcar entrada abre el turno');
   await card.locator('[data-accion="salida"]').click();
-  await page.waitForTimeout(300);
-  ok((await card.locator('[data-accion="entrada"]').count()) === 1, 'marcar salida cierra el turno');
+  ok(await espera(async () => (await card.locator('[data-accion="entrada"]').count()) === 1), 'marcar salida cierra el turno');
 
   // Corregir un turno nocturno (22:00 → 06:00 al día siguiente).
   await card.locator('[data-accion="turnos"]').click();
@@ -90,8 +105,7 @@ const ok = (cond, msg) => {
   await page.fill('#f-entrada', '22:00');
   await page.fill('#f-salida', '06:00');
   await page.locator('dialog.sheet button[type=submit]').last().click();
-  await page.waitForTimeout(400);
-  ok((await page.locator('dialog.sheet', { hasText: '(día sig.)' }).count()) === 1, 'turno nocturno de 8 h cruza la medianoche');
+  ok(await espera(async () => (await page.locator('dialog.sheet', { hasText: '(día sig.)' }).count()) === 1), 'turno nocturno de 8 h cruza la medianoche');
 
   // Archivar y restaurar un vehículo, con confirmación dentro de la página.
   await page.keyboard.press('Escape');
@@ -101,18 +115,16 @@ const ok = (cond, msg) => {
   await page.locator('[data-editar]').first().click();
   await page.click('[data-accion="archivar"]');
   await page.click('dialog.modal [data-r="1"]');
-  await page.waitForTimeout(400);
-  ok((await page.locator('[data-lista] .item').count()) === 2, 'vehículo archivado sale de la lista de activos');
+  ok(await espera(async () => (await page.locator('[data-lista] .item').count()) === 2), 'vehículo archivado sale de la lista de activos');
   await page.click('[data-filtro="1"]');
-  ok((await page.locator('[data-lista] .item').count()) === 1, 'aparece en Archivados');
+  ok(await espera(async () => (await page.locator('[data-lista] .item').count()) === 1), 'aparece en Archivados');
 
   // Placa duplicada.
   await page.click('[data-filtro="0"]');
   await page.click('[data-nuevo]');
   await page.fill('#f-placa', 'i067310');
   await page.click('dialog.sheet button[type=submit]');
-  await page.waitForTimeout(200);
-  ok((await page.textContent('#f-placa-err')).includes('Ya existe'), 'placa duplicada rechazada');
+  ok(await espera(async () => (await page.textContent('#f-placa-err')).includes('Ya existe')), 'placa duplicada rechazada');
 
   // Reportes: CSV descargable.
   await page.evaluate(() => { location.hash = '#/reportes'; });
@@ -143,17 +155,15 @@ const ok = (cond, msg) => {
   const totalAntes = await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')).length);
   await page.click('[data-borrar-ejemplo]');
   await page.click('dialog.modal [data-r="1"]');
-  await page.waitForTimeout(500);
+  await espera(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')).every((v) => !v.ejemplo))));
   const quedan = await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')));
   ok(quedan.length >= 1 && quedan.every((v) => !v.ejemplo), `datos de ejemplo borrados; quedan ${quedan.length} viaje(s) del usuario`);
-  ok(await page.locator('#badge-ejemplo').isHidden(), 'franja "datos de ejemplo" desaparece');
+  ok(await espera(() => page.locator('#badge-ejemplo').isHidden()), 'franja "datos de ejemplo" desaparece');
   await page.setInputFiles('#f-importar', rutaResp);
   await page.click('dialog.modal [data-r="1"]');
-  await page.waitForTimeout(500);
-  ok((await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')).length)) === totalAntes, 'importar respaldo restaura todos los viajes');
+  ok(await espera(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')).length)) === totalAntes), 'importar respaldo restaura todos los viajes');
   await page.setInputFiles('#f-importar', { name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"hola":1}') });
-  await page.waitForTimeout(200);
-  ok((await page.textContent('#f-importar-err')).includes('no es un respaldo'), 'archivo ajeno rechazado con mensaje');
+  ok(await espera(async () => (await page.textContent('#f-importar-err')).includes('no es un respaldo')), 'archivo ajeno rechazado con mensaje');
 
   ok(!errores.length, `sin errores de consola${errores.length ? `: ${errores.join(' | ')}` : ''}`);
   await navegador.close();

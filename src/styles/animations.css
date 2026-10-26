@@ -1,0 +1,80 @@
+/* Movimiento sobrio. Ninguna animación bloquea la interacción. */
+
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes item-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes sheet-out {
+  from { transform: none; }
+  to { transform: translateY(100%); }
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes toast-out {
+  to { opacity: 0; transform: translateY(8px); }
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.view--enter { animation: view-in var(--dur) var(--ease-out) both; }
+
+.stagger > * {
+  animation: item-in 220ms var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 10) * 24ms);
+}
+
+.sheet[open] { animation: sheet-in var(--dur-slow) var(--ease-out); }
+.sheet[open]::backdrop { animation: fade-in var(--dur-slow) var(--ease-out); }
+.sheet.is-closing { animation: sheet-out var(--dur) var(--ease-in) forwards; }
+.sheet.is-closing::backdrop { animation: fade-out var(--dur) var(--ease-in) forwards; }
+
+.modal[open] { animation: modal-in var(--dur) var(--ease-out); }
+.modal[open]::backdrop { animation: fade-in var(--dur) var(--ease-out); }
+.modal.is-closing { animation: fade-out var(--dur-fast) var(--ease-in) forwards; }
+.modal.is-closing::backdrop { animation: fade-out var(--dur-fast) var(--ease-in) forwards; }
+
+.toast { animation: toast-in var(--dur) var(--ease-out); }
+.toast.is-leaving { animation: toast-out var(--dur) var(--ease-in) forwards; }
+
+.bar > span { animation: bar-grow 500ms var(--ease-out) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  *::backdrop {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,122 @@
+// Ejecutar: node --test tests/
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  aISO, fechaClave, horaClave, sumarDias, inicioSemana, minutosEntre,
+  horaCercana, horaDespues, estadoViaje, formatoDuracion,
+} from '../src/core/time.js';
+
+// Santo Domingo es UTC−4 todo el año.
+test('aISO interpreta la hora en America/Santo_Domingo', () => {
+  assert.equal(aISO('2026-03-10', '08:30'), '2026-03-10T12:30:00.000Z');
+  assert.equal(aISO('2026-03-10', '22:15'), '2026-03-11T02:15:00.000Z');
+});
+
+test('fechaClave y horaClave usan la zona del negocio, no UTC', () => {
+  const iso = '2026-03-11T02:15:00.000Z'; // 10:15 p. m. del 10 en RD
+  assert.equal(fechaClave(iso), '2026-03-10');
+  assert.equal(horaClave(iso), '22:15');
+});
+
+test('sumarDias cruza meses y años', () => {
+  assert.equal(sumarDias('2026-12-31', 1), '2027-01-01');
+  assert.equal(sumarDias('2026-03-01', -1), '2026-02-28');
+});
+
+test('inicioSemana devuelve el lunes', () => {
+  assert.equal(inicioSemana('2026-10-26'), '2026-10-26'); // lunes
+  assert.equal(inicioSemana('2026-11-01'), '2026-10-26'); // domingo
+});
+
+const viaje = (salida, llegada, extra = {}) => ({
+  salidaProg: aISO('2026-03-10', salida),
+  llegadaProg: horaDespues(llegada, aISO('2026-03-10', salida)),
+  ...extra,
+});
+
+test('horaDespues: llegada programada después de medianoche cae al día siguiente', () => {
+  const v = viaje('23:30', '00:25');
+  assert.equal(fechaClave(v.llegadaProg), '2026-03-11');
+  assert.equal(minutosEntre(v.salidaProg, v.llegadaProg), 55);
+});
+
+test('horaCercana: llegada real tras medianoche se asigna al día siguiente', () => {
+  const prog = aISO('2026-03-10', '23:55');
+  const real = horaCercana('00:10', prog);
+  assert.equal(fechaClave(real), '2026-03-11');
+  assert.equal(minutosEntre(prog, real), 15);
+});
+
+test('horaCercana: llegada real antes de medianoche para un viaje programado después', () => {
+  const prog = aISO('2026-03-11', '00:05');
+  const real = horaCercana('23:50', prog);
+  assert.equal(fechaClave(real), '2026-03-10');
+  assert.equal(minutosEntre(prog, real), -15);
+});
+
+test('retraso calculado a través de la medianoche', () => {
+  const v = viaje('23:00', '23:50');
+  v.salidaReal = aISO('2026-03-10', '23:05');
+  v.llegadaReal = horaCercana('00:10', v.llegadaProg);
+  const e = estadoViaje(v, aISO('2026-03-11', '01:00'), 5);
+  assert.equal(e.estado, 'completado');
+  assert.equal(e.puntualidad, 'retrasado');
+  assert.equal(e.retrasoMin, 20);
+  assert.equal(e.etiqueta, 'Retrasado (+20 min)');
+});
+
+test('tolerancia: igual a la tolerancia es "A tiempo", uno más es "Retrasado"', () => {
+  const llegada = aISO('2026-03-10', '09:00');
+  const base = { salidaProg: aISO('2026-03-10', '08:00'), llegadaProg: llegada, salidaReal: aISO('2026-03-10', '08:00') };
+  const a5 = estadoViaje({ ...base, llegadaReal: aISO('2026-03-10', '09:05') }, llegada, 5);
+  assert.equal(a5.puntualidad, 'a_tiempo');
+  assert.equal(a5.retrasoMin, 5);
+  const a6 = estadoViaje({ ...base, llegadaReal: aISO('2026-03-10', '09:06') }, llegada, 5);
+  assert.equal(a6.puntualidad, 'retrasado');
+  assert.equal(a6.retrasoMin, 6);
+});
+
+test('tolerancia configurable (0 y 15)', () => {
+  const v = { salidaProg: aISO('2026-03-10', '08:00'), llegadaProg: aISO('2026-03-10', '09:00'), llegadaReal: aISO('2026-03-10', '09:10') };
+  assert.equal(estadoViaje(v, new Date(), 0).puntualidad, 'retrasado');
+  assert.equal(estadoViaje(v, new Date(), 15).puntualidad, 'a_tiempo');
+});
+
+test('llegar antes de lo programado es "A tiempo" con retraso negativo', () => {
+  const v = { salidaProg: aISO('2026-03-10', '08:00'), llegadaProg: aISO('2026-03-10', '09:00'), llegadaReal: aISO('2026-03-10', '08:48') };
+  const e = estadoViaje(v, new Date(), 5);
+  assert.equal(e.puntualidad, 'a_tiempo');
+  assert.equal(e.retrasoMin, -12);
+});
+
+test('sin llegada real y hora programada pasada → "Sin llegada registrada"', () => {
+  const v = viaje('08:00', '09:00', { salidaReal: aISO('2026-03-10', '08:02') });
+  const e = estadoViaje(v, aISO('2026-03-10', '09:01'), 5);
+  assert.equal(e.estado, 'sin_llegada');
+  assert.equal(e.etiqueta, 'Sin llegada registrada');
+  assert.equal(e.retrasoMin, null);
+});
+
+test('sin llegada se evalúa con la llegada del día siguiente en viajes nocturnos', () => {
+  const v = viaje('23:30', '00:25', { salidaReal: aISO('2026-03-10', '23:31') });
+  assert.equal(estadoViaje(v, aISO('2026-03-11', '00:20')).estado, 'en_ruta');
+  assert.equal(estadoViaje(v, aISO('2026-03-11', '00:26')).estado, 'sin_llegada');
+});
+
+test('programado, salida atrasada y en ruta', () => {
+  const v = viaje('08:00', '09:00');
+  const antes = estadoViaje(v, aISO('2026-03-10', '07:00'));
+  assert.equal(antes.estado, 'programado');
+  assert.equal(antes.salidaAtrasada, false);
+  const tarde = estadoViaje(v, aISO('2026-03-10', '08:10'));
+  assert.equal(tarde.estado, 'programado');
+  assert.equal(tarde.salidaAtrasada, true);
+  const enRuta = estadoViaje({ ...v, salidaReal: aISO('2026-03-10', '08:10') }, aISO('2026-03-10', '08:30'));
+  assert.equal(enRuta.estado, 'en_ruta');
+});
+
+test('formatoDuracion', () => {
+  assert.equal(formatoDuracion(40), '40 min');
+  assert.equal(formatoDuracion(60), '1 h');
+  assert.equal(formatoDuracion(75), '1 h 15 min');
+});

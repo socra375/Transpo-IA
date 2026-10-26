@@ -1,0 +1,12 @@
+{
+  "name": "control-de-transporte",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Web app móvil para supervisión de transporte de personal (RD). Sin build: se publica tal cual.",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "serve": "node scripts/serve.cjs",
+    "qa": "node scripts/qa.cjs"
+  }
+}

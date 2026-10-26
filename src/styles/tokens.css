@@ -1,0 +1,153 @@
+/* Tokens de diseño. --brand y --accent los fija app.js desde config.apariencia. */
+:root {
+  --brand: #0f4c81;
+  --accent: #f5a524;
+
+  /* Tipografía */
+  --font-display: 'Barlow Semi Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --font-body: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-xs: 0.76rem;
+  --fs-sm: 0.88rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.15rem;
+  --fs-xl: 1.4rem;
+  --fs-2xl: 1.75rem;
+  --fs-3xl: 2.15rem;
+  --lh-tight: 1.2;
+  --lh-base: 1.5;
+
+  /* Espaciado (múltiplos de 4 px a letra base 16; escala con el tamaño de letra) */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --gutter: max(16px, 1rem);
+
+  /* Forma */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-full: 999px;
+  --tap: 48px;
+
+  /* Movimiento */
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --dur-slow: 260ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Capas */
+  --z-nav: 20;
+  --z-header: 21;
+  --z-fab: 22;
+  --z-toast: 60;
+
+  /* --- Tema claro --- */
+  color-scheme: light;
+  --c-primary: var(--brand);
+  --c-primary-strong: color-mix(in oklab, var(--brand) 82%, black);
+  --c-primary-soft: color-mix(in oklab, var(--brand) 12%, white);
+  --c-on-primary: #ffffff;
+  --c-accent: var(--accent);
+  --c-on-accent: #1d1400;
+
+  --c-bg: #f2f4f7;
+  --c-surface: #ffffff;
+  --c-surface-2: #e9edf2;
+  --c-text: #111b26;
+  --c-text-muted: #4b5a69;
+  --c-border: #cfd7e0;
+  --c-border-strong: #9aa7b4;
+  --c-focus: color-mix(in oklab, var(--brand) 70%, #3b9bff);
+
+  --c-ok: #136c34;
+  --c-ok-bg: #e2f3e8;
+  --c-warn: #8a4b00;
+  --c-warn-bg: #fff1d1;
+  --c-error: #b3261e;
+  --c-error-bg: #fde8e6;
+  --c-info: var(--brand);
+  --c-info-bg: color-mix(in oklab, var(--brand) 12%, white);
+  --c-neutral: #4b5a69;
+  --c-neutral-bg: #e9edf2;
+
+  --shadow-1: 0 1px 2px rgb(16 27 38 / 0.06), 0 1px 3px rgb(16 27 38 / 0.08);
+  --shadow-2: 0 4px 12px rgb(16 27 38 / 0.10), 0 2px 4px rgb(16 27 38 / 0.06);
+  --shadow-3: 0 -8px 32px rgb(16 27 38 / 0.18);
+  --scrim: rgb(10 16 22 / 0.48);
+}
+
+/* --- Tema oscuro: manual o del sistema (si el usuario no forzó "claro") --- */
+:root[data-theme='oscuro'] {
+  color-scheme: dark;
+  --c-primary: color-mix(in oklab, var(--brand) 45%, #d6ecff);
+  --c-primary-strong: color-mix(in oklab, var(--brand) 30%, #e8f4ff);
+  --c-primary-soft: color-mix(in oklab, var(--brand) 40%, #121a22);
+  --c-on-primary: #061a2c;
+  --c-on-accent: #1d1400;
+
+  --c-bg: #0c1218;
+  --c-surface: #141c24;
+  --c-surface-2: #1c2630;
+  --c-text: #e9eef3;
+  --c-text-muted: #a3b0bd;
+  --c-border: #2b3946;
+  --c-border-strong: #4a5b6b;
+  --c-focus: #8cc8ff;
+
+  --c-ok: #6fdb98;
+  --c-ok-bg: #123222;
+  --c-warn: #ffc65c;
+  --c-warn-bg: #362609;
+  --c-error: #ff9a90;
+  --c-error-bg: #3d1714;
+  --c-info: #9fd0ff;
+  --c-info-bg: #13283b;
+  --c-neutral: #a3b0bd;
+  --c-neutral-bg: #222d38;
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-2: 0 4px 14px rgb(0 0 0 / 0.45);
+  --shadow-3: 0 -8px 32px rgb(0 0 0 / 0.55);
+  --scrim: rgb(0 0 0 / 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='claro']):not([data-theme='oscuro']) {
+    color-scheme: dark;
+    --c-primary: color-mix(in oklab, var(--brand) 45%, #d6ecff);
+    --c-primary-strong: color-mix(in oklab, var(--brand) 30%, #e8f4ff);
+    --c-primary-soft: color-mix(in oklab, var(--brand) 40%, #121a22);
+    --c-on-primary: #061a2c;
+    --c-on-accent: #1d1400;
+
+    --c-bg: #0c1218;
+    --c-surface: #141c24;
+    --c-surface-2: #1c2630;
+    --c-text: #e9eef3;
+    --c-text-muted: #a3b0bd;
+    --c-border: #2b3946;
+    --c-border-strong: #4a5b6b;
+    --c-focus: #8cc8ff;
+
+    --c-ok: #6fdb98;
+    --c-ok-bg: #123222;
+    --c-warn: #ffc65c;
+    --c-warn-bg: #362609;
+    --c-error: #ff9a90;
+    --c-error-bg: #3d1714;
+    --c-info: #9fd0ff;
+    --c-info-bg: #13283b;
+    --c-neutral: #a3b0bd;
+    --c-neutral-bg: #222d38;
+
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 4px 14px rgb(0 0 0 / 0.45);
+    --shadow-3: 0 -8px 32px rgb(0 0 0 / 0.55);
+    --scrim: rgb(0 0 0 / 0.6);
+  }
+}

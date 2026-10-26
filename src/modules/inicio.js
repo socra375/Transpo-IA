@@ -1,8 +1,160 @@
-// Provisional (fase 1).
+// Inicio: totales del día, avisos y viajes de hoy. Bloques y avisos configurables en config.inicio.
+import * as store from '../data/store.js';
+import { config } from '../config.js';
+import { pref, tolerancia } from '../core/prefs.js';
+import { hoyClave, sumarDias, fechaClave, estadoViaje, diasEntre } from '../core/time.js';
+import * as fmt from '../core/format.js';
+import { esc, icon, vacio, animarContador, escalonar, conCarga } from '../core/ui.js';
+import { tarjetaViaje, refsViajes, accionRapida, abrirViaje } from './viajes.js';
+import { avisoLicencia, turnoAbierto, turnoLargo } from './choferes.js';
+
+let contadoresAnimados = false;
+
+function saludo() {
+  const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: config.regional.zonaHoraria, hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+  return h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
+}
+
+function calcular({ viajes, combustible, choferes, turnos }) {
+  const ahora = new Date();
+  const hoy = hoyClave();
+  const tol = tolerancia();
+  const activos = viajes.filter((v) => !v.archivado);
+  const conEstado = activos.map((v) => ({ v, e: estadoViaje(v, ahora, tol) }));
+  const deHoy = conEstado.filter(({ v }) => fechaClave(v.salidaProg) === hoy);
+  const cargasHoy = combustible.filter((c) => !c.archivado && c.fecha === hoy);
+
+  const totales = {
+    viajes: { valor: deHoy.length, nota: `${deHoy.filter(({ e }) => e.estado === 'completado').length} completados` },
+    retrasos: {
+      valor: deHoy.filter(({ e }) => e.puntualidad === 'retrasado').length,
+      nota: `de ${deHoy.filter(({ e }) => e.estado === 'completado').length} llegados`,
+    },
+    combustible: {
+      valor: cargasHoy.reduce((s, c) => s + (c.monto || 0), 0),
+      nota: fmt.cantidad(Math.round(cargasHoy.reduce((s, c) => s + (c.cantidad || 0), 0) * 10) / 10),
+      dinero: true,
+    },
+  };
+
+  const op = config.inicio.avisos;
+  const avisos = [];
+  if (op.sinLlegada) {
+    // Hoy y ayer: un viaje nocturno de ayer sin cerrar también importa.
+    const sin = conEstado.filter(({ v, e }) => e.estado === 'sin_llegada' && fechaClave(v.salidaProg) >= sumarDias(hoy, -1));
+    if (sin.length) avisos.push({ tono: 'error', titulo: `${fmt.plural(sin.length, 'viaje', 'viajes')} sin llegada registrada`, texto: 'La hora de llegada programada ya pasó.', href: '#/viajes?filtro=retrasados' });
+  }
+  if (op.salidaPendiente) {
+    const pend = deHoy.filter(({ e }) => e.estado === 'programado' && e.salidaAtrasada);
+    if (pend.length) avisos.push({ tono: 'aviso', titulo: `${fmt.plural(pend.length, 'salida pendiente', 'salidas pendientes')}`, texto: 'Pasó la hora de salida y no se ha marcado.', href: '#/viajes?filtro=pendientes' });
+  }
+  if (op.licencias) {
+    for (const c of choferes.filter((x) => !x.archivado)) {
+      const a = avisoLicencia(c, hoy);
+      if (a) avisos.push({ tono: a.tono, titulo: c.nombre, texto: a.texto, href: '#/choferes' });
+    }
+  }
+  if (op.turnoLargo) {
+    for (const c of choferes.filter((x) => !x.archivado)) {
+      const t = turnoAbierto(turnos, c.id);
+      if (t && turnoLargo(t, ahora)) avisos.push({ tono: 'aviso', titulo: `${c.nombre} lleva más de ${config.negocio.horasTurnoLargo} h en turno`, texto: `Entrada: ${fmt.fecha(t.fecha)}, ${fmt.hora(t.entrada)}. ¿Falta marcar la salida?`, href: '#/choferes' });
+    }
+  }
+  if (op.respaldo) {
+    const reales = [viajes, combustible, choferes].some((l) => l.some((x) => !x.ejemplo));
+    const ultimo = pref('ultimoRespaldo');
+    const dias = ultimo ? diasEntre(fechaClave(ultimo), hoy) : null;
+    if (reales && (dias === null || dias > config.negocio.diasAvisoRespaldo)) {
+      avisos.push({ tono: 'info', titulo: 'Haz un respaldo de tus datos', texto: dias === null ? 'Aún no has exportado ningún respaldo.' : `El último fue hace ${fmt.plural(dias, 'día', 'días')}.`, href: '#/ajustes' });
+    }
+  }
+
+  const orden = { sin_llegada: 0, en_ruta: 1, programado: 2, completado: 3 };
+  const pendientes = deHoy
+    .filter(({ e }) => e.estado !== 'completado')
+    .sort((a, b) => orden[a.e.estado] - orden[b.e.estado] || a.v.salidaProg.localeCompare(b.v.salidaProg))
+    .map(({ v }) => v);
+  // Viajes nocturnos de ayer aún abiertos también se muestran.
+  const deAyer = conEstado.filter(({ v, e }) => fechaClave(v.salidaProg) === sumarDias(hoy, -1) && e.estado !== 'completado').map(({ v }) => v);
+  return { totales, avisos, pendientes: [...deAyer, ...pendientes], totalHoy: deHoy.length, hoy };
+}
+
+const ALERTA_ICONO = { error: 'alert', aviso: 'alert', info: 'shield' };
+
 export default {
   titulo: 'Inicio',
   pestana: 'inicio',
-  render(el) {
-    el.innerHTML = '<p class="muted">En construcción.</p>';
+  async render(el) {
+    el.innerHTML = '<div data-cuerpo></div>';
+    const cuerpo = el.querySelector('[data-cuerpo]');
+
+    let ultimos = { viajes: [], refs: null };
+    const pintar = async (animar) => {
+      const [viajes, combustible, choferes, turnos, refs] = await conCarga(
+        cuerpo,
+        Promise.all([
+          store.list('viajes', { archivados: 'todos' }), store.list('combustible'), store.list('choferes'), store.list('turnos'), refsViajes(),
+        ]),
+        3,
+      );
+      ultimos = { viajes, refs };
+      const d = calcular({ viajes, combustible, choferes, turnos });
+      const bloques = {
+        totales: () => `<section class="section" aria-label="Totales del día"><div class="stats">${config.inicio.totales
+          .filter((t) => t.activo)
+          .map((t, i) => `<div class="stat ${i === 0 ? 'stat--hero' : ''} ${t.id === 'retrasos' && d.totales.retrasos.valor ? 'stat--warn' : ''}">
+              <span class="stat__label">${esc(t.etiqueta)}</span>
+              <span class="stat__value ${d.totales[t.id].dinero ? 'stat__value--sm' : ''}" data-contador="${t.id}">${d.totales[t.id].dinero ? fmt.dineroCorto(d.totales[t.id].valor) : d.totales[t.id].valor}</span>
+              <span class="stat__note">${esc(d.totales[t.id].nota)}</span></div>`)
+          .join('')}</div></section>`,
+        avisos: () => (d.avisos.length
+          ? `<section class="section" aria-labelledby="t-avisos"><div class="section__head"><h2 class="section__title" id="t-avisos">Avisos</h2><span class="muted">${d.avisos.length}</span></div>
+              <ul class="list" data-avisos>${d.avisos.map((a) => `<li><a class="alert alert--${a.tono === 'aviso' ? 'warn' : a.tono}" href="${a.href}" style="text-decoration:none">${icon(ALERTA_ICONO[a.tono])}<span class="alert__body"><span class="alert__title">${esc(a.titulo)}</span><span class="alert__text">${esc(a.texto)}</span></span>${icon('chevron', 'icon--sm')}</a></li>`).join('')}</ul></section>`
+          : ''),
+        viajesHoy: () => `<section class="section" aria-labelledby="t-hoy">
+            <div class="section__head"><h2 class="section__title" id="t-hoy">Viajes pendientes</h2><a href="#/viajes">Ver los ${d.totalHoy} de hoy</a></div>
+            ${d.pendientes.length
+              ? `<ul class="list" data-lista>${d.pendientes.map((v) => tarjetaViaje(v, refs)).join('')}</ul>`
+              : vacio({
+                  icono: d.totalHoy ? 'check' : 'bus',
+                  titulo: d.totalHoy ? 'Todo completado por hoy' : 'No hay viajes programados hoy',
+                  texto: d.totalHoy ? 'Todos los viajes de hoy tienen llegada registrada.' : 'Programa el primero para empezar el día.',
+                  accion: `<a class="btn btn--primary" href="#/viajes?nuevo=1">${icon('plus')}Programar viaje</a>`,
+                })}
+          </section>`,
+      };
+      cuerpo.innerHTML = `<div class="view">
+          <div><p class="muted" style="font-weight:700">${esc(saludo())}</p><p style="font-family:var(--font-display);font-size:var(--fs-xl);font-weight:700">${esc(fmt.fechaLarga(d.hoy).replace(/^./, (c) => c.toUpperCase()))}</p></div>
+          ${config.inicio.bloques.filter((b) => b.activo && bloques[b.id]).map((b) => bloques[b.id]()).join('')}
+        </div>`;
+
+      if (animar && !contadoresAnimados) {
+        contadoresAnimados = true;
+        for (const t of config.inicio.totales.filter((x) => x.activo)) {
+          const n = cuerpo.querySelector(`[data-contador="${t.id}"]`);
+          animarContador(n, d.totales[t.id].valor, d.totales[t.id].dinero ? fmt.dineroCorto : (x) => String(Math.round(x)));
+        }
+      }
+      if (animar) {
+        const l = cuerpo.querySelector('[data-lista]');
+        if (l) escalonar(l);
+      }
+    };
+
+    cuerpo.addEventListener('click', async (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.rapido) {
+        b.disabled = true;
+        if (await accionRapida(b.dataset.rapido, b.dataset.id)) await pintar(false);
+        b.disabled = false;
+      } else if (b.dataset.editar) {
+        abrirViaje(ultimos.viajes.find((v) => v.id === b.dataset.editar), ultimos.refs, { alGuardar: () => pintar(false) });
+      }
+    });
+
+    await pintar(true);
+    const reloj = setInterval(() => pintar(false), 60000);
+    return () => clearInterval(reloj);
   },
 };

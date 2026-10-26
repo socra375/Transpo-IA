@@ -86,6 +86,7 @@ export const config = {
 
     rutas: {
       singular: 'ruta',
+      femenino: true,
       campos: [
         { clave: 'nombre', etiqueta: 'Nombre de la ruta', tipo: 'texto', activo: true, requerido: true, fijo: true, enLista: 'titulo', buscable: true, max: 60 },
         { clave: 'origen', etiqueta: 'Origen', tipo: 'texto', activo: true, requerido: true, enLista: 'subtitulo', buscable: true, max: 60 },
@@ -130,6 +131,7 @@ export const config = {
 
     combustible: {
       singular: 'carga',
+      femenino: true,
       campos: [
         { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha', activo: true, requerido: true, fijo: true, enLista: 'meta' },
         { clave: 'vehiculoId', etiqueta: 'Vehículo', tipo: 'referencia', coleccion: 'vehiculos', mostrar: 'placa', activo: true, requerido: true, enLista: 'titulo', buscable: true },

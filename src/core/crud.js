@@ -80,6 +80,8 @@ export function pantallaCrud(op) {
   const describir = op.describir || describirPorDefecto(campos);
   const buscables = campos.filter((c) => c.buscable);
   const singular = meta.singular;
+  const nuevo = `${meta.femenino ? 'Nueva' : 'Nuevo'} ${singular}`;
+  const guardado = `${singular[0].toUpperCase()}${singular.slice(1)} ${meta.femenino ? 'guardada' : 'guardado'}.`;
   const coleccion = op.coleccion || op.modulo;
 
   return {
@@ -97,7 +99,7 @@ export function pantallaCrud(op) {
         </div>
         <div data-cabecera></div>
         <ul class="list" data-lista aria-live="polite"></ul>
-        <button type="button" class="btn btn--primary fab" data-nuevo>${icon('plus')}Nuevo ${esc(singular)}</button>`;
+        <button type="button" class="btn btn--primary fab" data-nuevo>${icon('plus')}${esc(nuevo)}</button>`;
 
       const lista = el.querySelector('[data-lista]');
       let refs = {};
@@ -116,7 +118,7 @@ export function pantallaCrud(op) {
             ? `<li>${vacio({ icono: 'search', titulo: 'Sin resultados', texto: `No hay ${op.titulo.toLowerCase()} que coincidan con “${estado.q}”.` })}</li>`
             : estado.archivados
               ? `<li>${vacio({ icono: 'archive', titulo: 'Nada archivado', texto: 'Lo que archives aparecerá aquí y podrás restaurarlo.' })}</li>`
-              : `<li>${vacio({ icono: op.icono || 'inbox', titulo: `Aún no hay ${op.titulo.toLowerCase()}`, texto: op.textoVacio || `Toca “Nuevo ${singular}” para agregar el primero.` })}</li>`;
+              : `<li>${vacio({ icono: op.icono || 'inbox', titulo: `Aún no hay ${op.titulo.toLowerCase()}`, texto: op.textoVacio || `Toca “${nuevo}” para agregar ${meta.femenino ? 'la primera' : 'el primero'}.` })}</li>`;
           return;
         }
         lista.innerHTML = visibles.map((it) => itemHTML(it, describir(it, refs), it.archivado ? '' : op.accionesItem?.(it, refs) || '')).join('');
@@ -159,7 +161,7 @@ export function pantallaCrud(op) {
           );
         }
         abrirFormulario({
-          titulo: item ? `Editar ${singular}` : `Nuevo ${singular}`,
+          titulo: item ? `Editar ${singular}` : nuevo,
           campos,
           valores: item ? (op.alEditar ? op.alEditar(item) : item) : op.valoresNuevos?.(refs) || {},
           refs,
@@ -171,7 +173,7 @@ export function pantallaCrud(op) {
             const datos = op.alGuardar ? await op.alGuardar(v, item, refs) : v;
             if (item) await store.update(coleccion, item.id, datos);
             else await store.create(coleccion, datos);
-            toast(item ? 'Cambios guardados.' : `${singular[0].toUpperCase()}${singular.slice(1)} guardado.`);
+            toast(item ? 'Cambios guardados.' : guardado);
             await cargar();
           },
         });

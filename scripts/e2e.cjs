@@ -156,12 +156,18 @@ async function espera(cond, ms = 4000) {
   await page.click('[data-borrar-ejemplo]');
   await page.click('dialog.modal [data-r="1"]');
   await espera(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')).every((v) => !v.ejemplo))));
+  // Ajustes se repinta tras borrar (la pantalla queda vacía un instante): esperar a que la nueva ya esté
+  // completa —sin la sección de ejemplo y con el campo de importar— antes de actuar.
+  await espera(async () => (await page.locator('[data-borrar-ejemplo]').count()) === 0 && (await page.locator('#f-importar').count()) === 1);
   const quedan = await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')));
   ok(quedan.length >= 1 && quedan.every((v) => !v.ejemplo), `datos de ejemplo borrados; quedan ${quedan.length} viaje(s) del usuario`);
   ok(await espera(() => page.locator('#badge-ejemplo').isHidden()), 'franja "datos de ejemplo" desaparece');
+  const campoViejo = await page.$('#f-importar');
   await page.setInputFiles('#f-importar', rutaResp);
   await page.click('dialog.modal [data-r="1"]');
   ok(await espera(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('ct:v1:viajes')).length)) === totalAntes), 'importar respaldo restaura todos los viajes');
+  // Importar repinta Ajustes: esperar a que el campo anterior se desmonte antes de seguir.
+  ok(await espera(() => campoViejo.evaluate((el) => !el.isConnected)), 'Ajustes se repinta tras importar');
   await page.setInputFiles('#f-importar', { name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"hola":1}') });
   ok(await espera(async () => (await page.textContent('#f-importar-err')).includes('no es un respaldo')), 'archivo ajeno rechazado con mensaje');
 

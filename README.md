@@ -1,5 +1,7 @@
 # Control de Transporte
 
+[![CI](https://github.com/socra375/Transpo-IA/actions/workflows/ci.yml/badge.svg)](https://github.com/socra375/Transpo-IA/actions/workflows/ci.yml)
+
 Web app móvil para **un supervisor** de transporte de personal en República Dominicana: viajes y retrasos, choferes y turnos, rutas, vehículos, combustible y reportes. Funciona sin internet una vez instalada.
 
 - HTML + CSS + JavaScript (módulos ES). **Sin framework y sin build**: los archivos se publican tal cual.
@@ -24,7 +26,9 @@ Abre la dirección con el modo "dispositivo móvil" del navegador (390 px). La p
 | `npm run e2e` | Flujos reales en Chromium headless: validaciones, viaje nocturno, Salió/Llegó ahora, turnos, archivar, CSV, tolerancia, tema, respaldo exportar → importar. |
 | `npm run qa` | Todas las pantallas a 390 px en tema claro y oscuro: errores de consola, desbordes horizontales, contraste AA de cada texto y apertura sin conexión. Guarda capturas en `qa/capturas/`. |
 
-`e2e` y `qa` usan Playwright (`npm i -D playwright && npx playwright install chromium` si no lo tienes).
+`e2e` y `qa` usan Playwright (`npm i --no-save playwright && npx playwright install chromium` si no lo tienes).
+
+Las tres corren en **GitHub Actions** en cada push y PR (`.github/workflows/ci.yml`). Las capturas de QA quedan como artefacto `capturas-qa` en cada ejecución. Un cambio se fusiona a `main` solo si ese check está en verde (ver `CLAUDE.md`).
 
 ## Publicar en GitHub Pages
 

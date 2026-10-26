@@ -10,7 +10,7 @@ npm run e2e       # flujos en navegador headless
 npm run qa        # pantallas a 390 px, claro/oscuro, contraste, offline, letra grande
 ```
 
-- **Si las tres pasan:** fusionar el cambio a `main` sin pedir confirmación.
+- **Si las tres pasan en local Y el check `CI` de GitHub Actions (`.github/workflows/ci.yml`) está en verde en el último commit:** fusionar el cambio a `main` sin pedir confirmación.
 - **Si alguna falla o no se puede ejecutar:** no fusionar. Corregir, o informar qué falla y por qué.
 - Nunca saltar, desactivar ni debilitar una prueba para conseguir el verde.
 

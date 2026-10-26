@@ -1,0 +1,51 @@
+# Las tres suites de CLAUDE.md en cada push y PR. Si este check está en verde, el cambio se puede fusionar a main.
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    name: Pruebas (unitarias, e2e y QA)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: America/Santo_Domingo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Pruebas unitarias
+        run: npm test
+
+      # La app no tiene dependencias; Playwright solo se usa para probarla.
+      - name: Instalar Playwright y Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.63.0
+          npx playwright install --with-deps chromium
+
+      - name: Flujos en navegador (e2e)
+        run: npm run e2e
+
+      - name: QA visual (390 px claro/oscuro, contraste, offline, letra grande)
+        run: npm run qa
+
+      - name: Guardar capturas de QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-qa
+          path: qa/capturas/
+          retention-days: 14

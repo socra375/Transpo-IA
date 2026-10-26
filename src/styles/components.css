@@ -151,7 +151,7 @@
   font-size: var(--fs-xs);
 }
 
-.field { display: grid; gap: var(--sp-1); min-width: 0; }
+.field { display: grid; gap: var(--sp-1); min-width: 0; align-content: start; }
 .field__label { font-weight: 700; font-size: var(--fs-sm); }
 .field__label .req { color: var(--c-error); }
 .field__help { font-size: var(--fs-xs); color: var(--c-text-muted); }
@@ -356,9 +356,11 @@
   color: var(--c-text-muted);
   font-size: var(--fs-sm);
 }
+.item__meta > span { display: inline-flex; align-items: center; gap: 0.3em; }
 .item__aside { display: grid; justify-items: end; gap: var(--sp-1); }
-.item__actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-.item__actions .btn { flex: 1 1 auto; }
+.item__actions { display: flex; align-items: center; gap: var(--sp-2); }
+.item__actions .btn:first-child { flex: 1 1 auto; }
+.item__actions > * { flex: none; }
 .item--archived { opacity: 0.72; }
 .item--warn { border-left: 5px solid var(--c-warn); }
 .item--error { border-left: 5px solid var(--c-error); }
@@ -387,7 +389,6 @@
   font-weight: 700;
   font-size: var(--fs-base);
   color: var(--c-text-muted);
-  text-transform: capitalize;
 }
 
 /* ---------- Totales (Inicio) ---------- */

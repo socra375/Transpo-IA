@@ -31,11 +31,20 @@ jobs:
         run: npm test
 
       # La app no tiene dependencias; Playwright solo se usa para probarla.
-      - name: Instalar Playwright y Chromium
+      - name: Instalar Playwright
+        run: npm install --no-save --no-package-lock playwright@1.63.0
+
+      # Sin --with-deps: ese modo corre apt-get, que se quedó colgado en el espejo de Ubuntu (2 de 4 runs).
+      # El runner ya trae las librerías que Chromium necesita.
+      - name: Caché del navegador
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.63.0-${{ runner.os }}
+
+      - name: Descargar Chromium
         timeout-minutes: 5   # una descarga atascada debe fallar rápido, no bloquear 15 min
-        run: |
-          npm install --no-save --no-package-lock playwright@1.63.0
-          npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Flujos en navegador (e2e)
         timeout-minutes: 5

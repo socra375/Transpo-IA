@@ -659,3 +659,103 @@ dialog::backdrop { background: var(--scrim); }
 .kv dt { color: var(--c-text-muted); }
 .kv dd { margin: 0; font-weight: 700; text-align: right; overflow-wrap: anywhere; }
 .item__body > .chip { justify-self: start; margin-top: var(--sp-1); white-space: normal; }
+
+/* ---------- Escritorio: barra lateral izquierda ----------
+   Solo con mouse y ≥ 768 px. En el celular (sin hover) se mantiene la barra inferior.
+   Reposo: solo íconos (riel). Con el mouse encima o con foco de teclado: se despliega sobre el
+   contenido mostrando logo y nombres, sin empujar la página. */
+/* Más específico que `.tabbar a` para que la marca no aparezca en la barra inferior del celular. */
+.tabbar .tabbar__brand { display: none; }
+
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+  :root {
+    --rail: 72px;
+    --rail-open: 248px;
+  }
+
+  body { padding-left: var(--rail); }
+
+  .tabbar {
+    top: 0;
+    right: auto;
+    bottom: 0;
+    left: 0;
+    z-index: var(--z-rail);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-1);
+    width: var(--rail);
+    padding: var(--sp-3) 8px;
+    overflow: hidden;
+    border-top: 0;
+    border-right: 1px solid var(--c-border);
+    box-shadow: none;
+    transition: width var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+  }
+  .tabbar:hover,
+  .tabbar:focus-within {
+    width: var(--rail-open);
+    box-shadow: var(--shadow-2);
+  }
+
+  .tabbar a,
+  .tabbar .tabbar__brand {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--sp-3);
+    min-height: 52px;
+    padding: 0;
+    white-space: nowrap;
+    font-size: var(--fs-base);
+  }
+  .tabbar a span:last-child {
+    max-width: none;
+    overflow: visible;
+    opacity: 0;
+    transition: opacity var(--dur) var(--ease-out);
+  }
+  .tabbar:hover a span:last-child,
+  .tabbar:focus-within a span:last-child { opacity: 1; }
+
+  .tabbar a .tabbar__pill {
+    flex: none;
+    width: 56px;
+    height: 48px;
+    border-radius: var(--r-md);
+  }
+  .tabbar a[aria-current='page'] { background: var(--c-primary-soft); }
+  .tabbar a[aria-current='page'] .tabbar__pill { background: transparent; }
+  .tabbar a:hover { background: var(--c-surface-2); }
+  .tabbar a[aria-current='page']:hover { background: var(--c-primary-soft); }
+
+  /* Marca: logo siempre visible, nombre solo al desplegar. */
+  .tabbar .tabbar__brand {
+    margin-bottom: var(--sp-3);
+    color: var(--c-text);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--fs-lg);
+    text-decoration: none;
+  }
+  .tabbar__brand img {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    margin-left: 8px;
+    border-radius: var(--r-md);
+  }
+
+  /* El contenido ya no necesita espacio para la barra inferior. */
+  .app-main { padding-bottom: var(--sp-7); }
+  .fab {
+    right: max(var(--gutter), calc((100vw - var(--rail) - 720px) / 2 + var(--gutter)));
+    bottom: var(--sp-5);
+  }
+  .toasts {
+    left: calc(var(--rail) + var(--gutter));
+    bottom: var(--sp-5);
+  }
+}

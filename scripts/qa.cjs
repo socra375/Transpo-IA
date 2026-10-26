@@ -171,6 +171,94 @@ async function contraste(page) {
     await ctx.close();
   }
 
+  // Escritorio (1280 px, con mouse): riel lateral solo con íconos que se despliega al pasar el mouse.
+  for (const tema of ['light', 'dark']) {
+    const ctx = await navegador.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: tema, reducedMotion: 'reduce', locale: 'es-DO', timezoneId: 'America/Santo_Domingo' });
+    const page = await ctx.newPage();
+    page.setDefaultTimeout(5000);
+    const errores = [];
+    page.on('pageerror', (e) => errores.push(e.message));
+    page.on('console', (m) => { if (m.type() === 'error') errores.push(m.text()); });
+    await page.goto(`http://localhost:${puerto}/index.html#/inicio`);
+    await page.waitForSelector('.stat');
+    const nombreTema = tema === 'light' ? 'claro' : 'oscuro';
+    const chequear = (cond, msg) => {
+      console.log(`${cond ? '✓' : '✗'} ${tema} escritorio: ${msg}`);
+      if (!cond) fallos++;
+    };
+    const medir = () => page.evaluate(() => {
+      const nav = document.querySelector('.tabbar').getBoundingClientRect();
+      const main = document.getElementById('main').getBoundingClientRect();
+      const etiqueta = document.querySelector('.tabbar a[data-tab="viajes"] span:last-child');
+      return {
+        ancho: Math.round(nav.width), alto: Math.round(nav.height), izq: Math.round(nav.left),
+        mainIzq: Math.round(main.left), opacidad: Number(getComputedStyle(etiqueta).opacity),
+        marca: getComputedStyle(document.querySelector('.tabbar__brand')).display,
+        etiquetaVisible: etiqueta.getBoundingClientRect().right <= nav.right + 1,
+      };
+    });
+
+    await page.mouse.move(700, 400); // mouse lejos del riel
+    await page.waitForTimeout(350); // deja terminar el plegado del riel
+    const reposo = await medir();
+    chequear(reposo.ancho === 72 && reposo.izq === 0 && reposo.alto === 800, `riel plegado a la izquierda (${reposo.ancho}×${reposo.alto})`);
+    chequear(reposo.opacidad === 0, 'en reposo solo se ven los íconos (nombres ocultos)');
+    chequear(reposo.marca !== 'none', 'logo de la marca presente');
+    await page.screenshot({ path: path.join(SALIDA, `${nombreTema}-escritorio-riel.png`) });
+
+    await page.mouse.move(30, 300); // mouse sobre el riel
+    await page.waitForTimeout(350);
+    const abierto = await medir();
+    chequear(abierto.ancho === 248, `con el mouse encima se despliega (${abierto.ancho} px)`);
+    chequear(abierto.opacidad === 1 && abierto.etiquetaVisible, 'se ven los nombres de las secciones');
+    chequear(abierto.mainIzq === reposo.mainIzq, 'el contenido no se desplaza al desplegar');
+    const bajosAbierto = await contraste(page);
+    chequear(!bajosAbierto.length, `contraste del riel desplegado${bajosAbierto.length ? `: ${bajosAbierto.join(' | ')}` : ''}`);
+    await page.screenshot({ path: path.join(SALIDA, `${nombreTema}-escritorio-riel-abierto.png`) });
+
+    // Navegar con el riel y recorrer pantallas: sin desbordes ni problemas de contraste.
+    await page.click('.tabbar a[data-tab="viajes"]');
+    await page.waitForSelector('#header-title:has-text("Viajes")');
+    chequear((await page.evaluate(() => document.querySelector('.tabbar a[aria-current="page"]')?.dataset.tab)) === 'viajes', 'la sección activa queda marcada');
+    await page.mouse.move(700, 400);
+    await page.waitForTimeout(350);
+    for (const [nombre, ruta, accion] of PANTALLAS) {
+      await page.evaluate((h) => { location.hash = h; }, ruta);
+      await page.waitForTimeout(250);
+      if (accion) { try { await accion(page); } catch { /* el formulario ya se cubre a 390 px */ continue; } }
+      const fuera = await desbordes(page);
+      const bajos = await contraste(page);
+      chequear(!fuera.length && !bajos.length, `${nombre}${fuera.length ? ` desborde: ${fuera.join(', ')}` : ''}${bajos.length ? ` contraste: ${bajos.join(' | ')}` : ''}`);
+      if (nombre === 'viajes') await page.screenshot({ path: path.join(SALIDA, `${nombreTema}-escritorio-viajes.png`) });
+      if (accion) { await page.keyboard.press('Escape'); await page.waitForTimeout(300); }
+    }
+
+    // Teclado: el foco dentro del riel también lo despliega.
+    await page.evaluate(() => { location.hash = '#/inicio'; });
+    await page.waitForTimeout(250);
+    await page.focus('.tabbar a[data-tab="choferes"]');
+    await page.waitForTimeout(350);
+    chequear((await medir()).ancho === 248, 'con foco de teclado también se despliega');
+    chequear(!errores.length, `sin errores de consola${errores.length ? `: ${errores.join(' | ')}` : ''}`);
+    await ctx.close();
+  }
+
+  // Móvil: la barra inferior no cambia (el riel lateral es solo para mouse).
+  {
+    const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const page = await ctx.newPage();
+    await page.goto(`http://localhost:${puerto}/index.html#/inicio`);
+    await page.waitForSelector('.stat');
+    const m = await page.evaluate(() => {
+      const r = document.querySelector('.tabbar').getBoundingClientRect();
+      return { ancho: Math.round(r.width), abajo: Math.round(r.bottom), alto: window.innerHeight, marca: getComputedStyle(document.querySelector('.tabbar__brand')).display };
+    });
+    const ok = m.ancho === 390 && m.abajo === m.alto && m.marca === 'none';
+    console.log(`${ok ? '✓' : '✗'} móvil: barra inferior intacta (${m.ancho} px de ancho, sin logo lateral)`);
+    if (!ok) fallos++;
+    await ctx.close();
+  }
+
   // PWA: el service worker precarga la app y abre sin conexión.
   {
     const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 } });

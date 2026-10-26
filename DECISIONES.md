@@ -28,6 +28,8 @@ Lo que el cliente aún no confirmó se decidió así. Lo marcado **(config)** se
 | U7 | El esqueleto de carga solo aparece si los datos tardan más de 150 ms. Con localStorage casi nunca se ve; con Supabase sí. |
 | U8 | En las listas no hay "eliminar", solo **archivar/restaurar** (como pidió el cliente). Así no se rompen viajes o cargas que apunten al registro. |
 
+| U9 | **Menú lateral en escritorio.** Con mouse y ancho ≥ 768 px (`hover: hover` + `pointer: fine`), la barra inferior pasa a un riel a la izquierda con solo íconos y el logo. Al pasar el mouse (o enfocar con el teclado) se despliega sobre el contenido, sin empujarlo, con el nombre de la empresa y las secciones. En el celular y en tablets táctiles se mantiene la barra inferior, porque ahí no existe el hover y un riel sin nombres sería peor. Es el mismo `<nav>` reubicado con CSS: el router, las pestañas y los avisos no cambian. |
+
 ## Validaciones (config)
 
 - Teléfono: 10 dígitos que empiezan por 809, 829 u 849.

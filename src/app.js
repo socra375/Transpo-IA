@@ -37,6 +37,7 @@ async function actualizarInsignia() {
 
 async function iniciar() {
   document.getElementById('header-company').textContent = config.empresa.nombre;
+  document.getElementById('brand-name').textContent = config.empresa.nombre;
   // Altura real de la cabecera para los títulos de día "pegajosos" (cambia con la franja de ejemplo y la letra).
   const cabecera = document.querySelector('.app-header');
   new ResizeObserver(() => raiz.style.setProperty('--header-h', `${cabecera.offsetHeight}px`)).observe(cabecera);
